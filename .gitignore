@@ -1,0 +1,6 @@
+.DS_Store
+._*
+NVMeFix/build/
+NVMeFix/Lilu.kext/
+NVMeFix/MacKernelSDK/
+__pycache__/
