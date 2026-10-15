@@ -15,11 +15,40 @@ OpenCore EFI for the MSI GL65 9SEK, generated with [1401](https://github.com/nul
 
 ## Status
 
-Work in progress. The macOS install has not completed yet.
+Work in progress. The macOS install is in its second stage.
 
 - Wi-Fi in Recovery works through itlwm with a network saved in `itlwm.kext/Contents/Info.plist` (`WiFiConfig`). There is no HeliPort in Recovery.
 - PM981: unmount and format freezes are fixed. A stress test (10 × 2 GB write, delete, unmount/remount) passes.
-- Open issue: the installer panics after about 30 minutes with `Command timeout. Write` (see `docs/panics/`).
+- The installer used to panic after about 30 minutes with `Command timeout. Write` (see `docs/panics/`). That happened twice, with APST on and with APST off.
+- With the early mask, the completion watchdog and `nand-io-timeoutms=180000`, the first install stage finishes and reboots into "macOS Installer". ioreg confirmed `early-mask = Yes`, `watchdog = Yes` and `apst = No`.
+- Current issue: in the second install stage, the verbose text scrolls and then the screen goes black with the display off. It looks like the graphics handover, not the SSD. If it persists, add `-wegnoegpu` for the rest of the install.
+
+### Progress log
+
+| Date | Change | Result |
+|------|--------|--------|
+| 2026-10-15 | itlwm `WiFiConfig` | Recovery has internet, and the download works |
+| 2026-10-15 | Early interrupt mask (Catalina order) | Unmount and format no longer freeze, and the stress test passes |
+| 2026-10-15 | — | Install panic: `Command timeout. Write` at about 30 min |
+| 2026-10-16 | APST off (`ps-max-latency-us = 0`) | Erase froze because of the upstream `initActivePM` heap overflow (fixed) |
+| 2026-10-16 | APST off, host power management skipped | Install panic: same write timeout at about 27 min |
+| 2026-10-16 | Completion watchdog and `nand-io-timeoutms=180000` | First install stage completes; the second stage shows a black screen |
+
+## If an install crashes
+
+Boot the 1401 entry, open Terminal and upload the state. `nvram: Error getting variable ... data was not found` only means that no crash report is stored.
+
+```
+{ echo "== panic"; nvram -x aapl,panic-info; echo "== ioreg"; ioreg -r -c IONVMeController -l -w0 | grep -E '"apst"|"quirks"|"early-mask"|"watchdog"'; } > /tmp/state.txt
+```
+
+Decode the crash report on another Mac with `python3 tools/decode_panic.py state.txt`.
+
+## Next steps if the write timeout comes back
+
+1. Add NVRAM diagnostics to the watchdog: when the completion queue makes no progress for 10+ seconds, save the queue state and controller status to an NVRAM variable, which survives the panic.
+2. Put a SystemRescue partition in the free space on the USB stick. Use `nvme error-log`, `smart-log` and `fw-log`, and run `fio` with the installer's write pattern on the macOS partition only. This shows whether the firmware or macOS is at fault.
+3. Write a 5-minute reproduction script (`ditto` of `/System`, parallel large `dd` writes, `sync`) so each fix doesn't need a 30-minute install.
 
 ## Before you use this EFI
 
