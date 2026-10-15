@@ -46,6 +46,8 @@ private:
 	static void processKext(void*, KernelPatcher&, size_t, mach_vm_address_t, size_t);
 	static bool matchingNotificationHandler(void*, void*, IOService*, IONotifier*);
 	static bool terminatedNotificationHandler(void*, void*, IOService*, IONotifier*);
+	static bool blockStorageNotificationHandler(void*, void*, IOService*, IONotifier*);
+	IONotifier* blockStorageNotifier {nullptr};
 	bool solveSymbols(KernelPatcher& kp);
 	bool solveEarlyMask(KernelPatcher& kp, size_t idx);
 	static bool maskAndCheckPending(void* controller);

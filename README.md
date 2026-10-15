@@ -15,13 +15,14 @@ OpenCore EFI for the MSI GL65 9SEK, generated with [1401](https://github.com/nul
 
 ## Status
 
-Work in progress. The macOS install is in its second stage.
+**macOS Sequoia 15.8.1 (24H32) installs and boots on the factory PM981.**
 
-- Wi-Fi in Recovery works through itlwm with a network saved in `itlwm.kext/Contents/Info.plist` (`WiFiConfig`). There is no HeliPort in Recovery.
-- PM981: unmount and format freezes are fixed. A stress test (10 × 2 GB write, delete, unmount/remount) passes.
-- The installer used to panic after about 30 minutes with `Command timeout. Write` (see `docs/panics/`). That happened twice, with APST on and with APST off.
-- With the early mask, the completion watchdog and `nand-io-timeoutms=180000`, the first install stage finishes and reboots into "macOS Installer". ioreg confirmed `early-mask = Yes`, `watchdog = Yes` and `apst = No`.
-- Current issue: in the second install stage, the verbose text scrolls and then the screen goes black with the display off. It looks like the graphics handover, not the SSD. If it persists, add `-wegnoegpu` for the rest of the install.
+- The install completes, and the system boots to Setup Assistant from the PM981.
+- Wi-Fi works through itlwm with a network saved in `itlwm.kext/Contents/Info.plist` (`WiFiConfig`), in Recovery and in macOS.
+- Graphics: there is no acceleration yet. With accelerated Intel graphics the internal panel goes black (tried `0x3EA50009` and `0x3E9B0000`), so `-igfxvesa` is set for now.
+- The RTX 2060 is hidden with `-wegnoegpu`, but it is not powered off (the GPU LED stays orange).
+- OpenCore only lives on the USB stick. It is not installed on the SSD yet.
+- TRIM is off (`nvme=512`, `SetApfsTrimTimeout=0`). It has not been tested again since the install.
 
 ### Progress log
 
@@ -32,7 +33,11 @@ Work in progress. The macOS install is in its second stage.
 | 2026-10-15 | — | Install panic: `Command timeout. Write` at about 30 min |
 | 2026-10-16 | APST off (`ps-max-latency-us = 0`) | Erase froze because of the upstream `initActivePM` heap overflow (fixed) |
 | 2026-10-16 | APST off, host power management skipped | Install panic: same write timeout at about 27 min |
-| 2026-10-16 | Completion watchdog and `nand-io-timeoutms=180000` | First install stage completes; the second stage shows a black screen |
+| 2026-10-16 | Completion watchdog and `nand-io-timeoutms=180000` | First install stage completes |
+| 2026-10-16 | — | Final stage (15.8.1) panics with the same write timeout, even with a 3-minute timeout (firmware stall) |
+| 2026-10-16 | 128 KB write cap (`nvme-max-write-bytes`) and `DisableVariableWrite` | **Install completes** |
+| 2026-10-16 | `-wegnoegpu`, MythB iGPU properties | First boot reaches the desktop stage, but the panel is black (Caps Lock works) |
+| 2026-10-16 | `-igfxvesa` | **macOS boots with a picture** (no acceleration) |
 
 ## If an install crashes
 
@@ -44,63 +49,11 @@ Boot the 1401 entry, open Terminal and upload the state. `nvram: Error getting v
 
 Decode the crash report on another Mac with `python3 tools/decode_panic.py state.txt`.
 
-## Next steps if the write timeout comes back
+## Next steps
 
-1. Add NVRAM diagnostics to the watchdog: when the completion queue makes no progress for 10+ seconds, save the queue state and controller status to an NVRAM variable, which survives the panic.
-2. Put a SystemRescue partition in the free space on the USB stick. Use `nvme error-log`, `smart-log` and `fw-log`, and run `fio` with the installer's write pattern on the macOS partition only. This shows whether the firmware or macOS is at fault.
-3. Write a 5-minute reproduction script (`ditto` of `/System`, parallel large `dd` writes, `sync`) so each fix doesn't need a 30-minute install.
-
-## Before you use this EFI
-
-- `PlatformInfo > Generic` is scrubbed. Generate your own `SystemSerialNumber`, `MLB`, `SystemUUID` and `ROM` (for example with GenSMBIOS) for MacBookPro16,1.
-- Put your own Wi-Fi network in `EFI/OC/Kexts/itlwm.kext/Contents/Info.plist` under `WiFiConfig`.
-
-## Why the PM981 fails on modern macOS
-
-NVMeFix 1.0.2 fixed PM981 timeouts on Catalina by forcing `IONVMeController::ANS2MSIWorkaround`. That flag makes Apple's interrupt filter mask the interrupt *before* it checks the completion queues, and unmask through `HandleSpuriousInterrupt` when nothing is pending.
-
-Apple removed the flag and that code path in macOS 11. Sequoia's `FilterInterruptRequest` checks the queues first and masks afterwards. Upstream NVMeFix still looks for the old instruction, does not find it, and silently skips the fix (`Ignoring ANS2 workaround patch on newer system`).
-
-This was verified by disassembling `IONVMeFamily` from the Recovery images of 10.15.7, 12.5.1, 15.4.1 and 15.6.1.
-
-## Changes in the NVMeFix fork (`NVMeFix/`)
-
-Based on acidanthera/NVMeFix 1.1.4 (BSD licence, see `NVMeFix/LICENSE.txt`).
-
-- **Early interrupt mask (Catalina order restored).** Apple's code is never patched. For a plain `IONVMeController`, the fork swaps the `filterAction` pointer of the controller's own `IOFilterInterruptEventSource` at `+0x68`. It only does so when that pointer still equals Apple's `FilterInterruptRequest` and the source's owner is the controller.
-  - Every offset is read from Apple's code at boot.
-  - The completion queue check must match byte for byte, otherwise nothing changes.
-  - The status shows in ioreg as `early-mask`.
-- **Completion watchdog.** Every 250 ms, on the controller's workloop, it checks the completion queues and signals Apple's handler if a completion is waiting without an interrupt. The status shows in ioreg as `watchdog`.
-- **APST off on request.** With `ps-max-latency-us = 0`, APST is written off explicitly (like Linux `nvme_configure_apst`), and host power management is skipped so the drive stays at full power.
-- **Upstream bug fix.** `PM::initActivePM` allocated `IOPMPowerState[entry.nstates]` while `nstates` was still 0, then wrote past the buffer. This is a kernel heap overflow that only happens when APST is not used.
-
-### Building
-
-```
-cd NVMeFix
-# put Lilu.kext (DEBUG release, contains the SDK headers) and MacKernelSDK in this folder first
-xcodebuild -configuration Release
-```
-
-## OpenCore changes on top of 1401's output
-
-| Setting | Value | Why |
-|---------|-------|-----|
-| `boot-args` | `+ nvme=512` | Apple's IONVMeFamily flag that disables Unmap (TRIM) |
-| `boot-args` | `+ nand-io-timeoutms=180000` | 3-minute NVMe command timeout instead of 35 s (read by `GetDefaultRequestTimeout`) |
-| `NVRAM > Delete` | `boot-args` | so changes to `boot-args` take effect |
-| `Kernel > Quirks > SetApfsTrimTimeout` | `0` | no APFS trim at mount |
-| `DeviceProperties` `PciRoot(0x0)/Pci(0x1D,0x0)/Pci(0x0,0x0)` | `ps-max-latency-us = 0` (8 bytes) | APST off |
-
-## Verification tools (`tools/`)
-
-- `kcsyms.py`, `kcdump.py`, `dis.py`: list symbols, dump bytes and disassemble a kext inside a fileset kernel collection (`BootKernelExtensions.kc`).
-- `verify2.py`: replays the fork's offset detection against a real `IONVMeFamily`.
-- `diff_filter.py`: differential test of Apple's real `FilterInterruptRequest` (Unicorn emulation) against `mirror/pending.c`.
-- `e2e3.py`: end-to-end emulation of the compiled kext together with Apple's real functions, recording NVMe register writes.
-- `decode_panic.py`: decodes `nvram -x aapl,panic-info` output (7-bit packed) into readable text.
-
-## Crash reports (`docs/panics/`)
-
-Both install crashes show `3rd party NVMe controller. Command timeout. Write ... CSTS=0x1` on macOS 24G90 (15.6.1), at about 30 minutes into the install.
+1. Fix accelerated Intel graphics on the internal panel, then drop `-igfxvesa`.
+2. Install OpenCore on the SSD's EFI partition next to the Windows Boot Manager, and add a boot entry.
+3. Power the RTX 2060 off (SSDT-dGPU-Off, `\_SB.PCI0.PEG0.PEGP`).
+4. Map the USB ports (USBToolBox), and check audio (`layout-id`).
+5. Test TRIM again, then `SetApfsTrimTimeout` and `nvme=512`, with a backup first.
+6. Test sleep and wake.

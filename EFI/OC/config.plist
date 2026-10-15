@@ -272,7 +272,7 @@
 			<key>DisableSingleUser</key>
 			<false/>
 			<key>DisableVariableWrite</key>
-			<false/>
+			<true/>
 			<key>DiscardHibernateMap</key>
 			<false/>
 			<key>EnableSafeModeSlide</key>
@@ -318,6 +318,10 @@
 			</dict>
 			<key>PciRoot(0x0)/Pci(0x1D,0x0)/Pci(0x0,0x0)</key>
 			<dict>
+				<key>nvme-max-write-bytes</key>
+				<data>
+				AAACAA==
+				</data>
 				<key>ps-max-latency-us</key>
 				<data>
 				AAAAAAAAAAA=
@@ -332,19 +336,35 @@
 			<dict>
 				<key>AAPL,ig-platform-id</key>
 				<data>
-				CQClPg==
+				AACbPg==
 				</data>
-				<key>framebuffer-fbmem</key>
+				<key>enable-backlight-registers-alternative-fix</key>
 				<data>
-				AACQAA==
+				AQAAAA==
+				</data>
+				<key>enable-backlight-smoother</key>
+				<data>
+				AQAAAA==
 				</data>
 				<key>framebuffer-patch-enable</key>
 				<data>
 				AQAAAA==
 				</data>
-				<key>framebuffer-stolenmem</key>
+				<key>framebuffer-unifiedmem</key>
 				<data>
-				AAAwAQ==
+				AAAAgA==
+				</data>
+				<key>igfxfw</key>
+				<data>
+				AgAAAA==
+				</data>
+				<key>pci-aspm-default</key>
+				<data>
+				AgEAAA==
+				</data>
+				<key>rps-control</key>
+				<data>
+				AQAAAA==
 				</data>
 			</dict>
 		</dict>
@@ -1131,7 +1151,7 @@
 				AAAAAAAAAAAAAAAAAAA=
 				</data>
 				<key>boot-args</key>
-				<string>-v debug=0x100 keepsyms=1 -igfxblt -vi2c-force-polling nvfb=1 nvaccel=1 nvfbheads=4 -nvkmsnosmooth amfi_get_out_of_my_way=0x1 amfi=0x80 ipc_control_port_options=0 nvme=512 nand-io-timeoutms=180000</string>
+				<string>-v debug=0x100 keepsyms=1 -vi2c-force-polling nvfb=1 nvaccel=1 nvfbheads=4 -nvkmsnosmooth amfi_get_out_of_my_way=0x1 amfi=0x80 ipc_control_port_options=0 nvme=512 nand-io-timeoutms=180000 -wegnoegpu -igfxvesa</string>
 				<key>csr-active-config</key>
 				<data>
 				QwoAAA==

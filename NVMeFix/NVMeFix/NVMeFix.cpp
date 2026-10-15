@@ -621,6 +621,31 @@ bool NVMeFixPlugin::terminatedNotificationHandler(void* that, void* , IOService*
 }
 
 /**
+ * caps write size for drives that opt in with an "nvme-max-write-bytes" property on their pci device.
+ * IOBlockStorageDriver::handleStart copies IOMaximumByteCountWrite from itself and its parents once,
+ * and first publish of the block device is delivered before drivers are probed, so the cap set here
+ * on the block device wins over the controller's value.
+ */
+bool NVMeFixPlugin::blockStorageNotificationHandler(void* that, void*, IOService* service, IONotifier*) {
+	auto controller = service->getProvider();
+	if (!controller || strcmp(controller->getMetaClass()->getClassName(), "IONVMeController"))
+		return true;
+
+	uint32_t cap {0};
+	propertyFromParent(controller, "nvme-max-write-bytes", cap);
+	if (!cap)
+		return true;
+
+	auto current = OSDynamicCast(OSNumber, controller->getProperty("IOMaximumByteCountWrite"));
+	if (!current || current->unsigned64BitValue() > cap) {
+		service->setProperty("IOMaximumByteCountWrite", cap, 64);
+		SYSLOG(Log::Plugin, "Write size capped to %u bytes", cap);
+	}
+	controller->setProperty("max-write-cap", cap, 32);
+	return true;
+}
+
+/**
  * NOTE: We are in kmod context, not IOService. This works fine as long as we publish our personality
  * in Info.plist to match something in ioreg, but specify a non-existing IOClass so that IOKit attempts
  * to load us anyway. It is otherwise unsafe to use matching notifications from kmod when we have a
@@ -653,6 +678,14 @@ void NVMeFixPlugin::init() {
 		SYSLOG(Log::Plugin, "Failed to register for termination notification");
 		goto fail;
 	}
+
+	/* optional, a failure only means no write size cap */
+	blockStorageNotifier = IOService::addMatchingNotification(gIOFirstPublishNotification,
+							IOService::serviceMatching("IONVMeBlockStorageDevice"),
+							blockStorageNotificationHandler,
+						    this);
+	if (!blockStorageNotifier)
+		SYSLOG(Log::Plugin, "Failed to register for block storage notification");
 
 	DBGLOG(Log::Plugin, "Registered for matching notifications");
 
