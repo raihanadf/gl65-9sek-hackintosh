@@ -12,16 +12,21 @@ OpenCore EFI generated with [1401](https://github.com/nullmoth/1401), plus a pat
 | **Storage**    | Samsung PM981 512GB (MZVLB512HAJQ), shared with Windows |
 | **Screen**     | 15.6" 1920x1080 144Hz                         |
 | **iGPU**       | Intel UHD Graphics 630                        |
-| **dGPU**       | Nvidia RTX 2060 (NullMoth driver, Metal 3)    |
+| **dGPU**       | Nvidia RTX 2060 (off by default, optional NullMoth driver) |
 | **Audio**      | Realtek ALC269                                |
 | **Ethernet**   | Realtek RTL8111                               |
 | **WiFi / BT**  | Intel Wi-Fi 6E AX210                          |
 | **SMBIOS**     | MacBookPro16,1                                |
 
 ### Status
-**Everything works!** PM981 with TRIM, Metal 3 graphics, RTX 2060 with HDMI output (NullMoth driver), sleep/wake, Wi-Fi, Bluetooth and AirPods, audio, USB.
+**Everything works, with a few quirks.** The factory PM981 with TRIM, Metal 3 graphics on the 144 Hz panel, sleep/wake, Wi-Fi, Bluetooth and AirPods, audio, USB and dual boot with Windows.
 
-**Note:** the laptop is muxless, so the internal panel always runs on the Intel GPU and the RTX 2060 drives the HDMI and USB-C outputs. The EFI in this repo ships with the RTX powered off (`-wegnoegpu`, `SSDT-dGPU-Off`); see [PROGRESS.md](PROGRESS.md) for the NullMoth setup.
+### Quirks
+- **External displays are off by default.** The laptop is muxless: the internal panel runs on the Intel GPU, and the HDMI and USB-C ports are wired to the RTX 2060. The EFI keeps the RTX powered off (`-wegnoegpu`, `SSDT-dGPU-Off`) for battery life and working sleep. With the optional [NullMoth](https://github.com/nullmoth/nvidia-macos-driver) driver, HDMI works, but it takes about 2.5 minutes after boot to come up and feels laggy (around 50–60 fps on a 144 Hz monitor). See [PROGRESS.md](PROGRESS.md).
+- **Apple Music streams on AirPods** need the "GL65 Multi" Multi-Output device (FairPlay 4 streaming needs a T2 or AMD GPU). A small LaunchAgent switches to it automatically. The volume keys don't control it; use Music's slider.
+- **Wi-Fi** uses itlwm with HeliPort instead of the native Wi-Fi menu. No AirDrop or Continuity.
+- **SSD writes are capped at 128 KB** to work around PM981 firmware stalls. On rare occasions a boot still panics with an NVMe timeout; a full power-off fixes it.
+- **Audio** can disappear after a forced power-off. A full shutdown and power-on resets the codec.
 
 ### Progress
 The full status, progress log, crash-report workflow and setup notes are in [PROGRESS.md](PROGRESS.md).

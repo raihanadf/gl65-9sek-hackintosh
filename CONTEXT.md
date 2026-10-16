@@ -6,11 +6,11 @@ Notes for picking this project up again, by a person or an agent. PROGRESS.md co
 
 - macOS Sequoia 15.8.1 (24H32) on the factory Samsung PM981 (MZVLB512HAJQ-00000, firmware EXA7301Q), sharing the disk with Windows.
 - OpenCore 1.0.9 (DEBUG build from 1401) runs from the SSD's own EFI partition `disk0s4` (label `BOOT`, 1 GB, FAT32). The Windows ESP is `disk0s1`. The USB stick (`1401`) holds a copy of the laptop's EFI from 2026-10-16, before TRIM was enabled (MacBookPro16,1, `nvme=512`, TRIM off), as a rescue stick. Its older EFI is in `EFI.old-20261016` on the stick.
-- Working: SSD (writes capped at 128 KB, TRIM on), Intel UHD 630 acceleration with the 144 Hz panel, sleep/wake, Wi-Fi (itlwm + HeliPort), Bluetooth, AirPods audio (Music app streams through the "GL65 Multi" output, see below), speakers and microphone, USB map, boot menu with Macintosh HD first. The RTX 2060 is powered off, so the HDMI and USB-C display outputs do not work.
+- Working: SSD (writes capped at 128 KB, TRIM on), Intel UHD 630 acceleration with the 144 Hz panel, sleep/wake, Wi-Fi (itlwm + HeliPort), Bluetooth, AirPods audio (Music app streams through the "GL65 Multi" output, see below), speakers and microphone, USB map, boot menu with Macintosh HD first.
 - TRIM (2026-10-16): `nvme=512` removed and `SetApfsTrimTimeout = -1`. Boot trim: `disk1 40448586 blocks trimmed in 5243 extents` in 0.82 s. `tools/trimstress.sh` (copy on the laptop at `~/gl65-test/`) (10 × 2 GB write, delete, unmount, mount on a scratch APFS volume) passed both with and without APFS trim, with no NVMe errors. Config backups on `disk0s4`: `config.plist.bak-133005` (before removing `nvme=512`) and `config.plist.bak-133324` (before `SetApfsTrimTimeout = -1`).
-- Known gaps: no external display (its ports are wired to the RTX).
+- Quirks (also in README.md): the RTX 2060 is off by default, so the HDMI and USB-C outputs are dark; Music streams on AirPods need "GL65 Multi"; no AirDrop or Continuity; 128 KB write cap with a rare NVMe-timeout panic at boot; audio can drop after a forced power-off.
 
-## NVIDIA RTX 2060 (tried, removed 2026-10-16)
+## NVIDIA RTX 2060 (optional, off by default)
 
 - Current state: RTX off, as before the attempt: `-wegnoegpu`, `SSDT-dGPU-Off.aml` enabled, no `IONDRVSupport` block, the original `SSDT-PTSWAK.aml`, `pmset -a sleep 1`. The driver was removed with `sudo ~/nullmoth/pkgroot/uninstall.sh /Library/NullMoth/backup-20261016-141459.4okLov`. After the reboot: no `com.nullmoth` kexts loaded, no NVIDIA device on the PCI bus, Intel Metal 3. The live config differs from `config.plist.bak-135659` on `disk0s4` only in `Misc > Debug > SysReport` (off).
 - Hardware: RTX 2060 Mobile TU106M `10DE:1F11`. ACPI is Optimus without a mux (`MXDS`/`MXMX` absent), and the GOP is on Intel. The internal panel is Intel-only; HDMI and USB-C belong to the RTX.

@@ -15,13 +15,13 @@ Full status, progress log and setup notes for the MSI GL65 9SEK hackintosh. The 
 
 ## Status
 
-**macOS Sequoia 15.8.1 runs on the GL65 9SEK and its factory PM981 SSD. Daily use works.**
+**macOS Sequoia 15.8.1 runs on the GL65 9SEK and its factory PM981 SSD. Everything works for daily use, with the quirks listed in [README.md](README.md#quirks).**
 
 | Area | State |
 |------|-------|
 | SSD (PM981) | Works: ~2.0 GB/s write, ~3.3 GB/s read, survives sleep/wake. TRIM on (`nvme=512` removed, `SetApfsTrimTimeout = -1`). |
 | Intel UHD 630 | Accelerated (Metal 3), internal 1080p 144 Hz panel with backlight. |
-| RTX 2060 | Works with the NullMoth driver 2.0.4: Metal 3, drives the HDMI output (tested with a 2560×1440 monitor, extended desktop). Muxless Optimus: the internal panel stays on the Intel GPU. The EFI in this repo ships with the RTX powered off (`SSDT-dGPU-Off`, `-wegnoegpu`); the NullMoth setup and its trade-offs are in the progress log and CONTEXT.md. |
+| RTX 2060 | Off by default (`SSDT-dGPU-Off`, `-wegnoegpu`), so the HDMI and USB-C outputs are dark. Optional: the NullMoth driver 2.0.4 gives Metal 3 and a working HDMI desktop (tested at 2560×1440). It comes up about 150 s after boot, runs at about 47–64 fps on a 144 Hz monitor (frames are CPU-copied), and sleep with it is untested. Setup and findings are in CONTEXT.md. |
 | Sleep / wake | Works (`SSDT-PTSWAK` with `_PTS`/`_WAK` renames, hibernation off). |
 | Wi-Fi | itlwm with HeliPort for the menu-bar icon (macOS's own Wi-Fi icon hidden). |
 | Bluetooth | Intel AX210 BT works. AirPods audio works (A2DP patch, see below). Music app streams need a Multi-Output device wrapping the AirPods, because the HLS/FairPlay 4 path needs a T2 or AMD GPU (see CONTEXT.md). |
@@ -55,7 +55,7 @@ Full status, progress log and setup notes for the MSI GL65 9SEK hackintosh. The 
 | 2026-10-16 | dGPU on (`-wegnoegpu` removed, `SSDT-dGPU-Off` off), no driver | RTX 2060 (10DE:1F11, class 0300) visible; wake from sleep freezes with the GPU LED orange |
 | 2026-10-16 | `SSDT-PTSWAK` powers the dGPU on/off only when `SSDT-dGPU-Off` is loaded | Sleep hooks no longer turn off a GPU the driver owns |
 | 2026-10-16 | NullMoth NVIDIA driver 2.0.4 (`install.sh`), `Kernel > Block` IONDRVSupport | **External HDMI display works on the RTX 2060**: 4 kexts load, GPU comes up after the 100 s small-BAR settle, H24G30Q 2560×1440 online, windows usable. Same result on a second boot |
-| 2026-10-16 | NullMoth driver removed (`uninstall.sh`), back to `-wegnoegpu` + `SSDT-dGPU-Off` + the original PTSWAK, sleep on | The external screen was laggy. When the RTX composited it, the HDMI monitor showed artifacts and a black band at the lock screen; when Intel composited it, the RTX only displayed CPU-copied frames. Not worth keeping |
+| 2026-10-16 | NullMoth driver removed (`uninstall.sh`), back to `-wegnoegpu` + `SSDT-dGPU-Off` + the original PTSWAK, sleep on | Back to the default setup. With the driver, the external screen was laggy; when the RTX composited it (`nvrmsettle=3000` or `-nvaccelnoheadless`), the HDMI monitor showed artifacts at boot and a black band on the lock screen |
 
 ## If an install crashes
 
