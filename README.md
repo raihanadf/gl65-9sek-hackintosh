@@ -24,9 +24,10 @@ OpenCore EFI for the MSI GL65 9SEK, generated with [1401](https://github.com/nul
 | RTX 2060 | Powered off in macOS (`SSDT-dGPU-Off`); the GPU LED is white. |
 | Sleep / wake | Works (`SSDT-PTSWAK` with `_PTS`/`_WAK` renames, hibernation off). |
 | Wi-Fi | itlwm with HeliPort for the menu-bar icon (macOS's own Wi-Fi icon hidden). |
+| Bluetooth | Intel AX210 BT works. AirPods audio works (A2DP patch, see below) in Safari and system audio. The Music app stalls on AirPods (its spatial audio path is missing); use music.apple.com in Safari. |
 | Audio | ALC269, `layout-id` 66. After a forced power-off, do a full shutdown so the codec resets. |
 | USB | Custom `UTBMap.kext` (12 ports, including port 9 for the SteelSeries KLC keyboard lighting). |
-| Boot | OpenCore on the SSD's own EFI partition (`disk0s4`), registered in the BIOS (`LauncherOption = Full`). Windows keeps its own ESP. |
+| Boot | OpenCore on the SSD's own EFI partition (`disk0s4`), registered in the BIOS (`LauncherOption = Full`). Windows keeps its own ESP. Macintosh HD is listed first (see Boot menu order). |
 
 ### Progress log
 
@@ -48,6 +49,9 @@ OpenCore EFI for the MSI GL65 9SEK, generated with [1401](https://github.com/nul
 | 2026-10-16 | `SSDT-dGPU-Off` (`\\_SB.PCI0.PEG0.PEGP._OFF` from the OptTabl SSDT) | RTX 2060 powered off |
 | 2026-10-16 | Sleep without PTSWAK | Hangs with a static power LED; the watchdog now pauses for sleep |
 | 2026-10-16 | `SSDT-PTSWAK`, `_PTS`/`_WAK` renames, `pmset` hibernatemode 0 | **Sleep and wake work** |
+| 2026-10-16 | Official IntelBluetoothFirmware/IntelBTPatcher 2.4.0 | Bluetooth dead on the AX210 (firmware v0), reverted to 1401's 2.5.0 builds |
+| 2026-10-16 | `bluetoothHostControllerSwitchBehavior=always` | Safari audio on AirPods |
+| 2026-10-16 | BlueToolFixup with the A2DP clock-gate patch (`-btlfxa2dpcheck`) | No more AirPods distortion or dropouts; `Failed to read BT clock` gone |
 
 ## If an install crashes
 
@@ -63,6 +67,20 @@ Decode the crash report on another Mac with `python3 tools/decode_panic.py state
 
 1. Test TRIM again (`nvme=512` and `SetApfsTrimTimeout`), with a backup first.
 2. Optional: try AirportItlwm for the native Wi-Fi menu (on Sequoia it needs an OCLP root patch).
+
+## Bluetooth audio (AirPods)
+
+Apple's `bluetoothd` sends `HCI_Read_Clock` while bringing up A2DP for W1/H1/H2 headphones. The Intel controller does not answer it, so `bluetoothd` logs `Failed to read BT clock` and aborts the audio pipeline: the AirPods are connected but there is no sound ([IntelBluetoothFirmware#462](https://github.com/OpenIntelWireless/IntelBluetoothFirmware/issues/462)).
+
+- `EFI/OC/Kexts/BlueToolFixup.kext` is built from [acidanthera/BrcmPatchRAM#38](https://github.com/acidanthera/BrcmPatchRAM/pull/38) (hexxyan), with one change: `BlueToolFixup/tighten-a2dp-pattern-15.8.1.diff`.
+  - The PR's pattern also matched an unrelated `.bin` resource-load check in the 15.8.1 `bluetoothd`.
+  - The diff adds the preceding `lea rdi, [rbp-0x11]; call`, so only the clock gate is patched.
+- It is enabled with the boot-arg `-btlfxa2dpcheck`.
+- `bluetoothHostControllerSwitchBehavior=always` is set through OpenCore `NVRAM > Add` as raw bytes, because `DisableVariableWrite` blocks `nvram` from macOS.
+
+## Boot menu order
+
+OpenCore lists entries in disk order, so the Windows ESP came first. The scanned Windows entry is hidden with a `.contentVisibility` file (content `Disabled`) in the Windows ESP at `EFI/Microsoft/Boot/`. Windows is then added again in `Misc > Entries`, and custom entries are listed after scanned ones. The repo copy of that entry is a disabled template: fill in your NVMe EUI and Windows ESP partition UUID (`diskutil info disk0s1`).
 
 ## Post-install notes
 
