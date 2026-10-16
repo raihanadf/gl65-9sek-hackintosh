@@ -15,14 +15,18 @@ OpenCore EFI for the MSI GL65 9SEK, generated with [1401](https://github.com/nul
 
 ## Status
 
-**macOS Sequoia 15.8.1 (24H32) installs and boots on the factory PM981.**
+**macOS Sequoia 15.8.1 runs on the GL65 9SEK and its factory PM981 SSD. Daily use works.**
 
-- The install completes, and the system boots to Setup Assistant from the PM981.
-- Wi-Fi works through itlwm with a network saved in `itlwm.kext/Contents/Info.plist` (`WiFiConfig`), in Recovery and in macOS.
-- Graphics: there is no acceleration yet. With accelerated Intel graphics the internal panel goes black (tried `0x3EA50009` and `0x3E9B0000`), so `-igfxvesa` is set for now.
-- The RTX 2060 is hidden with `-wegnoegpu`, but it is not powered off (the GPU LED stays orange).
-- OpenCore only lives on the USB stick. It is not installed on the SSD yet.
-- TRIM is off (`nvme=512`, `SetApfsTrimTimeout=0`). It has not been tested again since the install.
+| Area | State |
+|------|-------|
+| SSD (PM981) | Works: ~2.0 GB/s write, ~3.3 GB/s read, survives sleep/wake. TRIM is still off (not tested yet). |
+| Intel UHD 630 | Accelerated (Metal 3), internal 1080p 144 Hz panel with backlight. |
+| RTX 2060 | Powered off in macOS (`SSDT-dGPU-Off`); the GPU LED is white. |
+| Sleep / wake | Works (`SSDT-PTSWAK` with `_PTS`/`_WAK` renames, hibernation off). |
+| Wi-Fi | itlwm with HeliPort for the menu-bar icon (macOS's own Wi-Fi icon hidden). |
+| Audio | ALC269, `layout-id` 66. After a forced power-off, do a full shutdown so the codec resets. |
+| USB | Custom `UTBMap.kext` (12 ports, including port 9 for the SteelSeries KLC keyboard lighting). |
+| Boot | OpenCore on the SSD's own EFI partition (`disk0s4`), registered in the BIOS (`LauncherOption = Full`). Windows keeps its own ESP. |
 
 ### Progress log
 
@@ -38,6 +42,12 @@ OpenCore EFI for the MSI GL65 9SEK, generated with [1401](https://github.com/nul
 | 2026-10-16 | 128 KB write cap (`nvme-max-write-bytes`) and `DisableVariableWrite` | **Install completes** |
 | 2026-10-16 | `-wegnoegpu`, MythB iGPU properties | First boot reaches the desktop stage, but the panel is black (Caps Lock works) |
 | 2026-10-16 | `-igfxvesa` | **macOS boots with a picture** (no acceleration) |
+| 2026-10-16 | `enable-backlight-registers-fix` instead of the alternative fix | **Accelerated graphics and backlight work**; `-igfxvesa` removed |
+| 2026-10-16 | OpenCore on `disk0s4`, `LauncherOption = Full` | Boots without the USB stick |
+| 2026-10-16 | `UTBMap.kext` | All USB devices mapped, including the USB 3 ports |
+| 2026-10-16 | `SSDT-dGPU-Off` (`\\_SB.PCI0.PEG0.PEGP._OFF` from the OptTabl SSDT) | RTX 2060 powered off |
+| 2026-10-16 | Sleep without PTSWAK | Hangs with a static power LED; the watchdog now pauses for sleep |
+| 2026-10-16 | `SSDT-PTSWAK`, `_PTS`/`_WAK` renames, `pmset` hibernatemode 0 | **Sleep and wake work** |
 
 ## If an install crashes
 
@@ -51,9 +61,12 @@ Decode the crash report on another Mac with `python3 tools/decode_panic.py state
 
 ## Next steps
 
-1. Fix accelerated Intel graphics on the internal panel, then drop `-igfxvesa`.
-2. Install OpenCore on the SSD's EFI partition next to the Windows Boot Manager, and add a boot entry.
-3. Power the RTX 2060 off (SSDT-dGPU-Off, `\_SB.PCI0.PEG0.PEGP`).
-4. Map the USB ports (USBToolBox), and check audio (`layout-id`).
-5. Test TRIM again, then `SetApfsTrimTimeout` and `nvme=512`, with a backup first.
-6. Test sleep and wake.
+1. Test TRIM again (`nvme=512` and `SetApfsTrimTimeout`), with a backup first.
+2. Optional: try AirportItlwm for the native Wi-Fi menu (on Sequoia it needs an OCLP root patch).
+
+## Post-install notes
+
+- `pmset -a hibernatemode 0 standby 0 autopoweroff 0 powernap 0 tcpkeepalive 0 proximitywake 0`
+- HeliPort starts at login from `~/Library/LaunchAgents/local.heliport.plist`.
+- Hide macOS's own Wi-Fi icon: `defaults write com.apple.controlcenter "NSStatusItem Visible WiFi" -bool false`.
+- To make Macintosh HD the default entry, press Ctrl+Enter on it in the OpenCore picker.

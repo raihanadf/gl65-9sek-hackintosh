@@ -232,9 +232,28 @@ bool NVMeFixPlugin::filterInterruptRequest(OSObject* controller, IOFilterInterru
 /* runs on the controller's workloop: picks up a completion whose interrupt never arrived */
 void NVMeFixPlugin::watchdogTick(OSObject* controller, IOTimerEventSource* timer) {
 	auto& plugin = globalPlugin();
+	/* paused for sleep: stop here, sleepWakeHandler restarts the timer after wake */
+	if (atomic_load_explicit(&plugin.watchdogPaused, memory_order_acquire))
+		return;
 	if (maskAndCheckPending(controller))
 		plugin.watchdogSource->signalInterrupt();
 	timer->setTimeoutMS(watchdogPeriodMs);
+}
+
+/* priority sleep/wake interest is delivered before drivers power down and after they power up */
+IOReturn NVMeFixPlugin::sleepWakeHandler(void* target, void*, UInt32 messageType, IOService*, void*, vm_size_t) {
+	auto plugin = static_cast<NVMeFixPlugin*>(target);
+	if (!plugin->watchdog)
+		return kIOReturnSuccess;
+
+	if (messageType == kIOMessageSystemWillSleep) {
+		atomic_store_explicit(&plugin->watchdogPaused, true, memory_order_release);
+		plugin->watchdog->cancelTimeout();
+	} else if (messageType == kIOMessageSystemHasPoweredOn) {
+		atomic_store_explicit(&plugin->watchdogPaused, false, memory_order_release);
+		plugin->watchdog->setTimeoutMS(watchdogPeriodMs);
+	}
+	return kIOReturnSuccess;
 }
 
 /**
@@ -427,7 +446,8 @@ void NVMeFixPlugin::handleController(ControllerEntry& entry) {
 				watchdogController = entry.controller;
 				watchdogSource = source;
 				watchdog->setTimeoutMS(watchdogPeriodMs);
-				SYSLOG(Log::Plugin, "Completion watchdog started");
+				sleepWakeNotifier = registerPrioritySleepWakeInterest(sleepWakeHandler, this);
+				SYSLOG(Log::Plugin, "Completion watchdog started (sleep pause %s)", sleepWakeNotifier ? "on" : "off");
 			} else {
 				SYSLOG(Log::Plugin, "Completion watchdog not started");
 				OSSafeReleaseNULL(watchdog);

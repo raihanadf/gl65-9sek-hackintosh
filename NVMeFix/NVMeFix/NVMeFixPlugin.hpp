@@ -25,6 +25,7 @@
 #include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOWorkLoop.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/pwr_mgt/IOPMpowerState.h>
 #include <Headers/kern_patcher.hpp>
 #include <Headers/kern_util.hpp>
@@ -53,6 +54,11 @@ private:
 	static bool maskAndCheckPending(void* controller);
 	static bool filterInterruptRequest(OSObject* controller, IOFilterInterruptEventSource* source);
 	static void watchdogTick(OSObject* controller, IOTimerEventSource* timer);
+	static IOReturn sleepWakeHandler(void* target, void*, UInt32 messageType, IOService*, void*, vm_size_t);
+
+	/* the watchdog must not touch the controller while the system powers it down for sleep */
+	atomic_bool watchdogPaused = false;
+	IONotifier* sleepWakeNotifier {nullptr};
 
 	/* polls the completion queues of the early mask controller, both are retained while it runs */
 	static constexpr uint32_t watchdogPeriodMs {250};
