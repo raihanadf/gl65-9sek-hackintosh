@@ -7,7 +7,7 @@ Full status, progress log and setup notes for the MSI GL65 9SEK hackintosh. The 
 | Part | Model |
 |------|-------|
 | CPU | Intel Core i7-9750H (Coffee Lake-H) |
-| iGPU / dGPU | Intel UHD 630 / NVIDIA RTX 2060 (powered off) |
+| iGPU / dGPU | Intel UHD 630 / NVIDIA RTX 2060 (NullMoth driver 2.0.4, or powered off) |
 | SSD | Samsung PM981 MZVLB512HAJQ-00000, firmware EXA7301Q (shared with Windows) |
 | Wi-Fi / BT | Intel AX210 (Wi-Fi 6E), itlwm + IntelBluetoothFirmware |
 | Ethernet | Realtek RTL8111 |
@@ -21,7 +21,7 @@ Full status, progress log and setup notes for the MSI GL65 9SEK hackintosh. The 
 |------|-------|
 | SSD (PM981) | Works: ~2.0 GB/s write, ~3.3 GB/s read, survives sleep/wake. TRIM on (`nvme=512` removed, `SetApfsTrimTimeout = -1`). |
 | Intel UHD 630 | Accelerated (Metal 3), internal 1080p 144 Hz panel with backlight. |
-| RTX 2060 | Powered off in macOS (`SSDT-dGPU-Off`, `-wegnoegpu`), so the HDMI and USB-C outputs (wired to the RTX) do not work. The NullMoth driver was tried and removed, see the progress log and CONTEXT.md. |
+| RTX 2060 | Works with the NullMoth driver 2.0.4: Metal 3, drives the HDMI output (tested with a 2560×1440 monitor, extended desktop). Muxless Optimus: the internal panel stays on the Intel GPU. The EFI in this repo ships with the RTX powered off (`SSDT-dGPU-Off`, `-wegnoegpu`); the NullMoth setup and its trade-offs are in the progress log and CONTEXT.md. |
 | Sleep / wake | Works (`SSDT-PTSWAK` with `_PTS`/`_WAK` renames, hibernation off). |
 | Wi-Fi | itlwm with HeliPort for the menu-bar icon (macOS's own Wi-Fi icon hidden). |
 | Bluetooth | Intel AX210 BT works. AirPods audio works (A2DP patch, see below). Music app streams need a Multi-Output device wrapping the AirPods, because the HLS/FairPlay 4 path needs a T2 or AMD GPU (see CONTEXT.md). |
